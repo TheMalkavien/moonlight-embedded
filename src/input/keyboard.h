@@ -34,8 +34,8 @@ static const short keyCodes[] = {
   0xBB, //VK_EQUALS
   0x08, //VK_BACK_SPACE
   0x09, //VK_TAB
-  0x51, //VK_Q
-  0x57, //VK_W
+  0x41, //VK_A
+  0x5A, //VK_Z
   0x45, //VK_E
   0x52, //VK_R
   0x54, //VK_T
@@ -48,7 +48,7 @@ static const short keyCodes[] = {
   0xDD, //VK_BRACERIGHT
   0x0D, //VK_ENTER
   0x11, //VK_CONTROL Left control
-  0x41, //VK_A
+  0x51, //VK_Q
   0x53, //VK_S
   0x44, //VK_D
   0x46, //VK_F
@@ -62,7 +62,7 @@ static const short keyCodes[] = {
   0xC0, //VK_GRAVE
   0x10, //VK_SHIFT Left shift
   0xDC, //VK_BACK_SLASH
-  0x5A, //VK_Z
+  0x57, //VK_W
   0x58, //VK_X
   0x43, //VK_C
   0x56, //VK_V
