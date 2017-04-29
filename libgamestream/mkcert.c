@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <openssl/crypto.h>
 #include <openssl/pem.h>
 #include <openssl/conf.h>
 #include <openssl/pkcs12.h>
@@ -42,7 +43,7 @@ CERT_KEY_PAIR mkcert_generate() {
     CRYPTO_mem_ctrl(CRYPTO_MEM_CHECK_ON);
     bio_err = BIO_new_fp(stderr, BIO_NOCLOSE);
     
-    SSLeay_add_all_algorithms();
+    OpenSSL_add_all_algorithms();
     ERR_load_crypto_strings();
     
     mkcert(&x509, &pkey, NUM_BITS, SERIAL, NUM_YEARS);
@@ -54,7 +55,6 @@ CERT_KEY_PAIR mkcert_generate() {
 #endif
     CRYPTO_cleanup_all_ex_data();
     
-    CRYPTO_mem_leaks(bio_err);
     BIO_free(bio_err);
     
     return (CERT_KEY_PAIR) {x509, pkey, p12};
@@ -129,8 +129,7 @@ int mkcert(X509 **x509p, EVP_PKEY **pkeyp, int bits, int serial, int years) {
     X509_set_issuer_name(x, name);
     
     /* Add various extensions: standard extensions */
-    add_ext(x, NID_basic_constraints, "critical,CA:TRUE");
-    add_ext(x, NID_key_usage, "critical,keyCertSign,cRLSign");
+    add_ext(x, NID_key_usage, "critical,digitalSignature,keyEncipherment");
     
     add_ext(x, NID_subject_key_identifier, "hash");
     
