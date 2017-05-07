@@ -1,7 +1,7 @@
 /*
  * This file is part of Moonlight Embedded.
  *
- * Copyright (C) 2015-2017 Iwan Timmer
+ * Copyright (C) 2017 Iwan Timmer
  *
  * Moonlight is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,9 +17,8 @@
  * along with Moonlight; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <Limelight.h>
+#include <EGL/egl.h>
 
-#include <pthread.h>
-
-extern CONNECTION_LISTENER_CALLBACKS connection_callbacks;
-extern pthread_t main_thread_id;
+void egl_init(EGLNativeDisplayType native_display, NativeWindowType native_window, int display_width, int display_height);
+void egl_draw(const uint8_t* image[3]);
+void egl_destroy();

@@ -1,7 +1,7 @@
 /*
  * This file is part of Moonlight Embedded.
  *
- * Copyright (C) 2015, 2016 Iwan Timmer
+ * Copyright (C) 2015-2017 Iwan Timmer
  *
  * Moonlight is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,7 +20,11 @@
 #define _GNU_SOURCE
 
 #include "platform.h"
-#include "audio.h"
+
+#include "util.h"
+
+#include "audio/audio.h"
+#include "video/video.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -55,6 +59,10 @@ enum platform platform_check(char* name) {
       return AML;
   }
   #endif
+  #ifdef HAVE_X11
+  if (std || strcmp(name, "x11") == 0)
+    return X11;
+  #endif
   #ifdef HAVE_SDL
   if (std || strcmp(name, "sdl") == 0)
     return SDL;
@@ -65,8 +73,44 @@ enum platform platform_check(char* name) {
   return 0;
 }
 
+void platform_start(enum platform system) {
+  switch (system) {
+  #ifdef HAVE_AML
+  case AML:
+    blank_fb("/sys/class/graphics/fb0/blank", true);
+    blank_fb("/sys/class/graphics/fb1/blank", true);
+    break;
+  #endif
+  #ifdef HAVE_PI
+  case PI:
+    blank_fb("/sys/class/graphics/fb0/blank", true);
+    break;
+  #endif
+  }
+}
+
+void platform_stop(enum platform system) {
+  switch (system) {
+  #ifdef HAVE_AML
+  case AML:
+    blank_fb("/sys/class/graphics/fb0/blank", false);
+    blank_fb("/sys/class/graphics/fb1/blank", false);
+    break;
+  #endif
+  #ifdef HAVE_PI
+  case PI:
+    blank_fb("/sys/class/graphics/fb0/blank", false);
+    break;
+  #endif
+  }
+}
+
 DECODER_RENDERER_CALLBACKS* platform_get_video(enum platform system) {
   switch (system) {
+  #ifdef HAVE_X11
+  case X11:
+    return &decoder_callbacks_x11;
+  #endif
   #ifdef HAVE_SDL
   case SDL:
     return &decoder_callbacks_sdl;
@@ -83,13 +127,11 @@ DECODER_RENDERER_CALLBACKS* platform_get_video(enum platform system) {
   case AML:
     return (PDECODER_RENDERER_CALLBACKS) dlsym(RTLD_DEFAULT, "decoder_callbacks_aml");
   #endif
-  case FAKE:
-    return &decoder_callbacks_fake;
   }
   return NULL;
 }
 
-AUDIO_RENDERER_CALLBACKS* platform_get_audio(enum platform system) {
+AUDIO_RENDERER_CALLBACKS* platform_get_audio(enum platform system, char* audio_device) {
   switch (system) {
   #ifdef HAVE_SDL
   case SDL:
@@ -102,12 +144,12 @@ AUDIO_RENDERER_CALLBACKS* platform_get_audio(enum platform system) {
   #endif
   default:
     #ifdef HAVE_PULSE
-    if (audio_pulse_init())
+    if (audio_pulse_init(audio_device))
       return &audio_callbacks_pulse;
     #endif
+    #ifdef HAVE_ALSA
     return &audio_callbacks_alsa;
-  case FAKE:
-    return &audio_callbacks_fake;
+    #endif
   }
   return NULL;
 }

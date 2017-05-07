@@ -1,7 +1,7 @@
 /*
  * This file is part of Moonlight Embedded.
  *
- * Copyright (C) 2015 Iwan Timmer
+ * Copyright (C) 2017 Iwan Timmer
  *
  * Moonlight is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,11 +17,23 @@
  * along with Moonlight; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <signal.h>
-#include <pthread.h>
+#include "util.h"
 
-pthread_t main_thread_id;
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <stdio.h>
 
-void quit() {
-  pthread_kill(main_thread_id, SIGTERM);
+int blank_fb(char *path, bool clear) {
+  int fd = open(path, O_RDWR);
+
+  if(fd >= 0) {
+    int ret = write(fd, clear ? "1" : "0", 1);
+    if (ret < 0)
+      fprintf(stderr, "Failed to clear framebuffer %s: %d\n", path, ret);
+
+    close(fd);
+    return 0;
+  } else
+    return -1;
 }
