@@ -45,8 +45,6 @@ static struct option long_options[] = {
   {"4k", no_argument, NULL, '0'},
   {"width", required_argument, NULL, 'c'},
   {"height", required_argument, NULL, 'd'},
-  {"30fps", no_argument, NULL, 'e'},
-  {"60fps", no_argument, NULL, 'f'},
   {"bitrate", required_argument, NULL, 'g'},
   {"packetsize", required_argument, NULL, 'h'},
   {"app", required_argument, NULL, 'i'},
@@ -63,9 +61,7 @@ static struct option long_options[] = {
   {"windowed", no_argument, NULL, 't'},
   {"surround", no_argument, NULL, 'u'},
   {"fps", required_argument, NULL, 'v'},
-  {"forcehw", no_argument, NULL, 'w'},
-  {"hevc", no_argument, NULL, 'x'},
-  {"h264", no_argument, NULL, 'z'},
+  {"codec", required_argument, NULL, 'x'},
   {"unsupported", no_argument, NULL, 'y'},
   {0, 0, 0, 0},
 };
@@ -136,12 +132,6 @@ static void parse_argument(int c, char* value, PCONFIGURATION config) {
   case 'd':
     config->stream.height = atoi(value);
     break;
-  case 'e':
-    config->stream.fps = 30;
-    break;
-  case 'f':
-    config->stream.fps = 60;
-    break;
   case 'g':
     config->stream.bitrate = atoi(value);
     break;
@@ -202,14 +192,13 @@ static void parse_argument(int c, char* value, PCONFIGURATION config) {
   case 'v':
     config->stream.fps = atoi(value);
     break;
-  case 'w':
-    config->forcehw = true;
-    break;
   case 'x':
-    config->codec = CODEC_HEVC;
-    break;
-  case 'z':
-    config->codec = CODEC_H264;
+    if (strcasecmp(value, "auto") == 0)
+      config->codec = CODEC_UNSPECIFIED;
+    else if (strcasecmp(value, "h264") == 0)
+      config->codec = CODEC_H264;
+    if (strcasecmp(value, "h265") == 0 || strcasecmp(value, "hevc") == 0)
+      config->codec = CODEC_HEVC;
     break;
   case 'y':
     config->unsupported_version = true;
@@ -247,8 +236,11 @@ bool config_file_parse(char* filename, PCONFIGURATION config) {
         config->localaudio = strcmp("true", value) == 0;
       } else {
         for (int i=0;long_options[i].name != NULL;i++) {
-          if (long_options[i].has_arg == required_argument && strcmp(long_options[i].name, key) == 0) {
-            parse_argument(long_options[i].val, value, config);
+          if (strcmp(long_options[i].name, key) == 0) {
+            if (long_options[i].has_arg == required_argument)
+              parse_argument(long_options[i].val, value, config);
+            else if (strcmp("true", value) == 0)
+              parse_argument(long_options[i].val, NULL, config);
           }
         }
       }
@@ -297,7 +289,7 @@ void config_parse(int argc, char* argv[], PCONFIGURATION config) {
   config->stream.audioConfiguration = AUDIO_CONFIGURATION_STEREO;
   config->stream.supportsHevc = false;
 
-  config->platform = "default";
+  config->platform = "auto";
   config->app = "Steam";
   config->action = NULL;
   config->address = NULL;
@@ -307,7 +299,6 @@ void config_parse(int argc, char* argv[], PCONFIGURATION config) {
   config->localaudio = false;
   config->fullscreen = true;
   config->unsupported_version = false;
-  config->forcehw = false;
   config->codec = CODEC_UNSPECIFIED;
 
   config->inputsCount = 0;
@@ -356,10 +347,8 @@ void config_parse(int argc, char* argv[], PCONFIGURATION config) {
       config->stream.bitrate = 5000;
   }
 
-  if (inputAdded) {
-    if (config->mapping == NULL) {
-        fprintf(stderr, "Please specify mapping file as default mapping could not be found.\n");
-        exit(-1);
-    }
+  if (config->mapping == NULL) {
+    fprintf(stderr, "Please specify mapping file as default mapping could not be found.\n");
+    exit(-1);
   }
 }

@@ -105,9 +105,6 @@ static void stream(PSERVER_DATA server, PCONFIGURATION config, enum platform sys
   if (config->fullscreen)
     drFlags |= DISPLAY_FULLSCREEN;
 
-  if (config->forcehw)
-    drFlags |= FORCE_HARDWARE_ACCELERATION;
-
   printf("Stream %d x %d, %d fps, %d kbps\n", config->stream.width, config->stream.height, config->stream.fps, config->stream.bitrate);
 
   platform_start(system);
@@ -143,15 +140,13 @@ static void help() {
   printf("\n Streaming options\n\n");
   printf("\t-720\t\t\tUse 1280x720 resolution [default]\n");
   printf("\t-1080\t\t\tUse 1920x1080 resolution\n");
-  printf("\t-4k\t\t\t\tUse 3840x2160 resolution\n");
+  printf("\t-4k\t\t\tUse 3840x2160 resolution\n");
   printf("\t-width <width>\t\tHorizontal resolution (default 1280)\n");
   printf("\t-height <height>\tVertical resolution (default 720)\n");
-  printf("\t-30fps\t\t\tUse 30fps\n");
-  printf("\t-60fps\t\t\tUse 60fps\n");
+  printf("\t-fps <fps>\t\tSpecify the fps to use (default -1)\n");
   printf("\t-bitrate <bitrate>\tSpecify the bitrate in Kbps\n");
   printf("\t-packetsize <size>\tSpecify the maximum packetsize in bytes\n");
-  printf("\t-hevc\t\t\tUse the high efficiency video coding (HEVC)\n");
-  printf("\t-h264\t\t\tUse the advanced video coding (H264)\n");
+  printf("\t-codec <codec>\t\tSelect used codec: auto/h264/h265 (default auto)\n");
   printf("\t-remote\t\t\tEnable remote optimizations\n");
   printf("\t-app <app>\t\tName of app to stream\n");
   printf("\t-nosops\t\t\tDon't allow GFE to modify game settings\n");
@@ -159,13 +154,14 @@ static void help() {
   printf("\t-surround\t\tStream 5.1 surround sound (requires GFE 2.7)\n");
   printf("\t-keydir <directory>\tLoad encryption keys from directory\n");
   printf("\t-mapping <file>\t\tUse <file> as gamepad mappings configuration file\n");
+  printf("\t-platform <system>\tSpecify system used for audio, video and input: pi/imx/aml/x11/x11_vdpau/sdl (default auto)\n");
+  printf("\t-unsupported\t\tTry streaming if GFE version is unsupported\n");
   #if defined(HAVE_SDL) || defined(HAVE_X11)
-  printf("\n Video options (SDL and X11 only)\n\n");
+  printf("\n WM options (SDL and X11 only)\n\n");
   printf("\t-windowed\t\tDisplay screen in a window\n");
-  printf("\t-forcehw \t\tTry to use video hardware acceleration\n");
   #endif
   #ifdef HAVE_EMBEDDED
-  printf("\n I/O options (PI, IMX, AML and X11 only)\n\n");
+  printf("\n I/O options (Not for SDL)\n\n");
   printf("\t-input <device>\t\tUse <device> as input. Can be used multiple times\n");
   printf("\t-audio <device>\t\tUse <device> as audio output device\n");
   #endif

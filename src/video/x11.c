@@ -20,7 +20,9 @@
 #include "video.h"
 #include "egl.h"
 #include "ffmpeg.h"
+#ifdef HAVE_VDPAU
 #include "ffmpeg_vdpau.h"
+#endif
 
 #include "../input/x11.h"
 #include "../loop.h"
@@ -37,41 +39,59 @@
 
 static char* ffmpeg_buffer = NULL;
 
-static Display *display;
+static Display *display = NULL;
 
 static int pipefd[2];
 
 static int frame_handle(int pipefd) {
-  const unsigned char** data = NULL;
-  while (read(pipefd, &data, sizeof(void*)) > 0);
-  if (data)
-    egl_draw(data);
+  AVFrame* frame = NULL;
+  while (read(pipefd, &frame, sizeof(void*)) > 0);
+  if (frame)
+    egl_draw(frame->data);
 
   return LOOP_OK;
 }
 
-int x11_setup(int videoFormat, int width, int height, int redrawRate, void* context, int drFlags) {
-  int avc_flags = SLICE_THREADING;
-  if (drFlags & FORCE_HARDWARE_ACCELERATION)
-    avc_flags |= HARDWARE_ACCELERATION;
+int x11_init(bool vdpau) {
+  XInitThreads();
+  display = XOpenDisplay(NULL);
+  if (!display)
+    return -1;
 
+  #ifdef HAVE_VDPAU
+  if (vdpau && vdpau_init_lib(display) != 0)
+    return -2;
+  #endif
+
+  return 0;
+}
+
+int x11_setup(int videoFormat, int width, int height, int redrawRate, void* context, int drFlags) {
   ffmpeg_buffer = malloc(DECODER_BUFFER_SIZE + FF_INPUT_BUFFER_PADDING_SIZE);
   if (ffmpeg_buffer == NULL) {
     fprintf(stderr, "Not enough memory\n");
-    ffmpeg_destroy();
     return -1;
   }
 
-  XInitThreads();
-  display = XOpenDisplay(NULL);
   if (!display) {
     fprintf(stderr, "Error: failed to open X display.\n");
-    return -2;
+    return -1;
+  }
+
+  int display_width;
+  int display_height;
+  if (drFlags & DISPLAY_FULLSCREEN) {
+    Screen* screen = DefaultScreenOfDisplay(display);
+    display_width = WidthOfScreen(screen);
+    display_height = HeightOfScreen(screen);
+  } else {
+    display_width = width;
+    display_height = height;
   }
 
   Window root = DefaultRootWindow(display);
   XSetWindowAttributes winattr = { .event_mask = PointerMotionMask | ButtonPressMask | ButtonReleaseMask | KeyPressMask | KeyReleaseMask };
-  Window window = XCreateWindow(display, root, 0, 0, width, height, 0, CopyFromParent, InputOutput, CopyFromParent, CWEventMask, &winattr);
+  Window window = XCreateWindow(display, root, 0, 0, display_width, display_height, 0, CopyFromParent, InputOutput, CopyFromParent, CWEventMask, &winattr);
   XMapWindow(display, window);
   XStoreName(display, window, "Moonlight");
 
@@ -90,27 +110,40 @@ int x11_setup(int videoFormat, int width, int height, int redrawRate, void* cont
 
     XSendEvent(display, DefaultRootWindow(display), False, SubstructureRedirectMask | SubstructureNotifyMask, &xev);
   }
+  XFlush(display);
 
-  if (ffmpeg_init(videoFormat, width, height, avc_flags, 2, 2, display) < 0) {
+  int avc_flags = SLICE_THREADING;
+  #ifdef HAVE_VDPAU
+  if (drFlags & ENABLE_HARDWARE_ACCELERATION)
+    avc_flags |= HARDWARE_ACCELERATION;
+  #endif
+
+  if (ffmpeg_init(videoFormat, width, height, avc_flags, 2, 2) < 0) {
     fprintf(stderr, "Couldn't initialize video decoding\n");
     return -1;
   }
 
-  if (ffmpeg_decoder == SOFTWARE)
+  if (ffmpeg_decoder == SOFTWARE) {
     egl_init(display, window, width, height);
-  else
-    vdpau_init_queue(window);
+    if (pipe(pipefd) == -1) {
+      fprintf(stderr, "Can't create communication channel between threads\n");
+      return -2;
+    }
+    loop_add_fd(pipefd[0], &frame_handle, POLLIN);
+    fcntl(pipefd[0], F_SETFL, O_NONBLOCK);
+  }
+  #ifdef HAVE_VDPAU
+  else if (ffmpeg_decoder == VDPAU)
+    vdpau_init_presentation(window, width, height, display_width, display_height);
+  #endif
 
   x11_input_init(display, window);
 
-  if (pipe(pipefd) == -1) {
-    fprintf(stderr, "Can't create communication channel between threads\n");
-    return -2;
-  }
-  loop_add_fd(pipefd[0], &frame_handle, POLLIN);
-  fcntl(pipefd[0], F_SETFL, O_NONBLOCK);
-
   return 0;
+}
+
+int x11_setup_vdpau(int videoFormat, int width, int height, int redrawRate, void* context, int drFlags) {
+  return x11_setup(videoFormat, width, height, redrawRate, context, drFlags | ENABLE_HARDWARE_ACCELERATION);
 }
 
 void x11_cleanup() {
@@ -130,10 +163,9 @@ int x11_submit_decode_unit(PDECODE_UNIT decodeUnit) {
     ffmpeg_decode(ffmpeg_buffer, length);
     AVFrame* frame = ffmpeg_get_frame(true);
     if (frame != NULL) {
-      if (ffmpeg_decoder == SOFTWARE) {
-        void* pointer = frame->data;
-        write(pipefd[1], &pointer, sizeof(void*));
-      } else
+      if (ffmpeg_decoder == SOFTWARE)
+        write(pipefd[1], &frame, sizeof(void*));
+      else if (ffmpeg_decoder == VDPAU)
         vdpau_queue(frame);
     }
   }
@@ -146,4 +178,11 @@ DECODER_RENDERER_CALLBACKS decoder_callbacks_x11 = {
   .cleanup = x11_cleanup,
   .submitDecodeUnit = x11_submit_decode_unit,
   .capabilities = CAPABILITY_SLICES_PER_FRAME(4) | CAPABILITY_REFERENCE_FRAME_INVALIDATION_AVC | CAPABILITY_REFERENCE_FRAME_INVALIDATION_HEVC | CAPABILITY_DIRECT_SUBMIT,
+};
+
+DECODER_RENDERER_CALLBACKS decoder_callbacks_x11_vdpau = {
+  .setup = x11_setup_vdpau,
+  .cleanup = x11_cleanup,
+  .submitDecodeUnit = x11_submit_decode_unit,
+  .capabilities = CAPABILITY_DIRECT_SUBMIT,
 };

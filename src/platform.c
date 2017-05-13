@@ -34,7 +34,7 @@
 typedef bool(*ImxInit)();
 
 enum platform platform_check(char* name) {
-  bool std = strcmp(name, "default") == 0;
+  bool std = strcmp(name, "auto") == 0;
   #ifdef HAVE_IMX
   if (std || strcmp(name, "imx") == 0) {
     void *handle = dlopen("libmoonlight-imx.so", RTLD_NOW | RTLD_GLOBAL);
@@ -60,8 +60,14 @@ enum platform platform_check(char* name) {
   }
   #endif
   #ifdef HAVE_X11
-  if (std || strcmp(name, "x11") == 0)
+  if (std || strcmp(name, "x11") == 0 || strcmp(name, "x11_vdpau") == 0) {
+    int x11 = x11_init(strcmp(name, "x11") != 0);
+    #ifdef HAVE_VDPAU
+    if (strcmp(name, "x11") != 0 && x11 == 0)
+      return X11_VDPAU;
+    #endif
     return X11;
+  }
   #endif
   #ifdef HAVE_SDL
   if (std || strcmp(name, "sdl") == 0)
@@ -110,6 +116,10 @@ DECODER_RENDERER_CALLBACKS* platform_get_video(enum platform system) {
   #ifdef HAVE_X11
   case X11:
     return &decoder_callbacks_x11;
+  #ifdef HAVE_VDPAU
+  case X11_VDPAU:
+    return &decoder_callbacks_x11_vdpau;
+  #endif
   #endif
   #ifdef HAVE_SDL
   case SDL:
