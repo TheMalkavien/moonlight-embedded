@@ -1,3 +1,5 @@
+set(SO_VERSION 1)
+
 find_package(LibUUID REQUIRED)
 find_package(Threads REQUIRED)
 find_package(CURL REQUIRED)
@@ -14,13 +16,14 @@ aux_source_directory(../third_party/moonlight-common-c/src MOONLIGHT_COMMON_SRC_
 aux_source_directory(../third_party/moonlight-common-c/reedsolomon MOONLIGHT_COMMON_SRC_LIST)
 
 add_library(moonlight-common SHARED ${MOONLIGHT_COMMON_SRC_LIST})
+set_property(TARGET moonlight-common PROPERTY C_STANDARD 99)
 
 add_library(gamestream SHARED ${GAMESTREAM_SRC_LIST})
 set_property(TARGET gamestream PROPERTY C_STANDARD 99)
 target_link_libraries(gamestream moonlight-common)
 
-set_target_properties(gamestream PROPERTIES SOVERSION 0 VERSION ${MOONLIGHT_VERSION})
-set_target_properties(moonlight-common PROPERTIES SOVERSION 0 VERSION ${MOONLIGHT_VERSION})
+set_target_properties(gamestream PROPERTIES SOVERSION ${SO_VERSION} VERSION ${PROJECT_VERSION})
+set_target_properties(moonlight-common PROPERTIES SOVERSION ${SO_VERSION} VERSION ${PROJECT_VERSION})
 
 target_include_directories(gamestream PRIVATE ../third_party/moonlight-common-c/src ../third_party/h264bitstream ${AVAHI_INCLUDE_DIRS} ${LIBUUID_INCLUDE_DIRS})
 target_include_directories(moonlight-common PRIVATE ../third_party/moonlight-common-c/reedsolomon ${ENET_INCLUDE_DIRS})
