@@ -57,7 +57,7 @@ static const short keyCodes[] = {
   0x4A, //VK_J
   0x4B, //VK_K
   0x4C, //VK_L
-  0xBA, //VK_SEMICOLON
+  0x4D, //VK_M
   0xDE, //VK_APOSTROPHE
   0xC0, //VK_GRAVE
   0x10, //VK_SHIFT Left shift
@@ -68,8 +68,8 @@ static const short keyCodes[] = {
   0x56, //VK_V
   0x42, //VK_B
   0x4E, //VK_N
-  0x4D, //VK_M
   0xBC, //VK_COMMA
+  0xBA, //VK_SEMICOLON
   0xBE, //VK_DOT
   0xBF, //VK_SLASH
   0x10, //VK_SHIFT Right shift
